@@ -64,7 +64,7 @@ func main() {
 
 	routes.UserRoutes(router)
 	router.Use(middleware.Authentication())
-
+	routes.KnowledgeBaseRoutes(router)
 	routes.ChatMessageRoutes(router)
 	routes.ChatSessionRoutes(router)
 	routes.DocumentRoutes(router)
