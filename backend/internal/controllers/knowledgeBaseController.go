@@ -97,7 +97,6 @@ func UpdateKnowledgeBase() gin.HandlerFunc {
 			return
 		}
 
-		// Gán các field mới
 		kb.Name = kbReq.Name
 		kb.Description = kbReq.Description
 		kb.UpdatedAt = time.Now()
