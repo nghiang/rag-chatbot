@@ -4,7 +4,7 @@ import (
 	"time"
 	// "errors"
 	// "gorm.io/gorm"
-	"backend/internal/database"
+	"backend/internal/services"
 )
 
 type KnowledgeBase struct {
@@ -20,17 +20,13 @@ type KnowledgeBase struct {
     ChatSessions   []ChatSession  `gorm:"foreignKey:KnowledgeBaseID" json:"chat_sessions,omitempty"`
 }
 
-func MigrateKnowledgeBase() error {
-	return database.DB.AutoMigrate(&KnowledgeBase{})
-}
-
 func CreateKnowledgeBase(kb *KnowledgeBase) error {
-    return database.DB.Create(kb).Error
+    return services.DB.Create(kb).Error
 }
 
 func GetKnowledgeBaseByID(id uint) (*KnowledgeBase, error) {
     var kb KnowledgeBase
-    if err := database.DB.First(&kb, id).Error; err != nil {
+    if err := services.DB.First(&kb, id).Error; err != nil {
         return nil, err
     }
     return &kb, nil
@@ -38,18 +34,18 @@ func GetKnowledgeBaseByID(id uint) (*KnowledgeBase, error) {
 
 func ListKnowledgeBasesByUserID(userID uint) ([]KnowledgeBase, error) {
     var kbs []KnowledgeBase
-    if err := database.DB.Where("user_id = ?", userID).Find(&kbs).Error; err != nil {
+    if err := services.DB.Where("user_id = ?", userID).Find(&kbs).Error; err != nil {
         return nil, err
     }
     return kbs, nil
 }
 
 func UpdateKnowledgeBase(kb *KnowledgeBase) error {
-    return database.DB.Save(kb).Error
+    return services.DB.Save(kb).Error
 }
 
 func DeleteKnowledgeBase(id uint) error {
-    return database.DB.Delete(&KnowledgeBase{}, id).Error
+    return services.DB.Delete(&KnowledgeBase{}, id).Error
 }
 
 

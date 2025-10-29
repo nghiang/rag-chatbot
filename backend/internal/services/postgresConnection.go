@@ -1,9 +1,8 @@
-package database
+package services
 
 import (
 	"fmt"
-	"os"
-
+	"backend/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -12,28 +11,14 @@ var DB *gorm.DB
 
 // InitDB initializes the global GORM DB connection and runs AutoMigrate for models.
 func InitDB() error {
-	user := os.Getenv("POSTGRES_USER")
-	if user == "" {
-		user = "postgres"
-	}
-	password := os.Getenv("POSTGRES_PASSWORD")
-	if password == "" {
-		password = "postgres"
-	}
-	dbname := os.Getenv("POSTGRES_DB")
-	if dbname == "" {
-		dbname = "rag_chatbot_db"
-	}
-	host := os.Getenv("POSTGRES_HOST")
-	if host == "" {
-		host = "localhost"
-	}
-	port := os.Getenv("POSTGRES_PORT")
-	if port == "" {
-		port = "5432"
-	}
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC", host, user, password, dbname, port)
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
+		config.LoadConfig().PostGresHost,
+		config.LoadConfig().PostGresUser,
+		config.LoadConfig().PostGresPassword,
+		config.LoadConfig().PostGresDB,
+		config.LoadConfig().PostGresPort,
+	)
 
 	gdb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -12,7 +11,8 @@ import (
 
 	"backend/internal/models"
 	"backend/internal/queues"
-	"backend/internal/storage"
+	"backend/config"
+	"backend/internal/services"
 )
 
 
@@ -54,11 +54,13 @@ func CreateDocument() gin.HandlerFunc {
 		// prepare object name
 		objectName := fmt.Sprintf("kb_%d/%d_%s", kbID, time.Now().UnixNano(), header.Filename)
 
-		// upload to minio
-		bucket := os.Getenv("MINIO_BUCKET")
-		if bucket == "" {
-			bucket = "documents"
-		}
+		// load config (do not read env directly here)
+		cfg := config.LoadConfig()
+		bucket := cfg.MinioBucket
+
+		// storage base path from config (LocalStoragePath)
+		basePath := cfg.LocalStoragePath
+		storageSvc := services.NewLocalStorage(basePath)
 
 		// we need the size for PutObject; try to get from header
 		var size int64 = 0
@@ -66,15 +68,14 @@ func CreateDocument() gin.HandlerFunc {
 			size = header.Size
 		}
 
-		// copy file to a temporary buffer/reader because reader may be consumed by PutObject
-		// minio client accepts io.Reader; header.Size may be 0 for some clients but PutObject can handle unknown size with -1.
+		// ensure bucket (dir) exists and upload
 		ctx := context.Background()
-		if err := storage.EnsureBucket(ctx, bucket); err != nil {
+		if err := storageSvc.EnsureBucket(ctx, bucket); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to ensure bucket: " + err.Error()})
 			return
 		}
 
-		if err := storage.UploadObject(ctx, bucket, objectName, file, size, header.Header.Get("Content-Type")); err != nil {
+		if err := storageSvc.UploadObject(ctx, bucket, objectName, file, size, header.Header.Get("Content-Type")); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upload file: " + err.Error()})
 			return
 		}

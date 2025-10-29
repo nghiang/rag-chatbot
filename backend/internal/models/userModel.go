@@ -4,7 +4,7 @@ import (
 	"time"
 	"errors"
 	"gorm.io/gorm"
-	"backend/internal/database"
+	"backend/internal/services"
 )
 
 type User struct {
@@ -19,17 +19,13 @@ type User struct {
     ChatSessions   []ChatSession     `gorm:"foreignKey:UserID" json:"chat_sessions,omitempty"`
 }
 
-func MigrateUser() error {
-	return database.DB.AutoMigrate(&User{})
-}
-
 func CreateUser(u *User) error {
-	return database.DB.Create(u).Error
+	return services.DB.Create(u).Error
 }
 
 func GetUserByID(id uint) (*User, error) {
 	var u User
-	if err := database.DB.First(&u, id).Error; err != nil {
+	if err := services.DB.First(&u, id).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -37,7 +33,7 @@ func GetUserByID(id uint) (*User, error) {
 
 func GetUserByEmail(email string) (*User, error) {
 	var u User
-	err := database.DB.Where("email = ?", email).First(&u).Error
+	err := services.DB.Where("email = ?", email).First(&u).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -49,7 +45,7 @@ func GetUserByEmail(email string) (*User, error) {
 
 func ListUsers() ([]User, error) {
 	var users []User
-	if err := database.DB.Select("id", "name").Find(&users).Error; err != nil {
+	if err := services.DB.Select("id", "name").Find(&users).Error; err != nil {
 		return nil, err
 	}
 	return users, nil

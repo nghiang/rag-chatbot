@@ -4,7 +4,7 @@ import (
 	"time"
 	// "errors"
 	// "gorm.io/gorm"
-	"backend/internal/database"
+	"backend/internal/services"
 )
 
 
@@ -23,26 +23,23 @@ type Document struct {
     User          User          `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"user,omitempty"`
 }
 
-func MigrateDocument() error {
-	return database.DB.AutoMigrate(&Document{})
-}
 
 func CreateDocument(d *Document) error {
-    return database.DB.Create(d).Error
+    return services.DB.Create(d).Error
 }
 
 func GetDocumentByID(id uint) (*Document, error) {
     var doc Document
-    if err := database.DB.First(&doc, id).Error; err != nil {
+    if err := services.DB.First(&doc, id).Error; err != nil {
         return nil, err
     }
     return &doc, nil
 }
 
 func UpdateDocument(d *Document) error {
-    return database.DB.Save(d).Error
+    return services.DB.Save(d).Error
 }
 
 func UpdateDocumentEmbeddingStatus(id uint, status string) error {
-    return database.DB.Model(&Document{}).Where("id = ?", id).Update("embedding_status", status).Error
+    return services.DB.Model(&Document{}).Where("id = ?", id).Update("embedding_status", status).Error
 }

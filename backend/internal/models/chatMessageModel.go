@@ -4,7 +4,7 @@ import (
 	"time"
 	// "errors"
 	// "gorm.io/gorm"
-	"backend/internal/database"
+	// "backend/internal/database"
 )
 
 type ChatMessage struct {
@@ -13,8 +13,4 @@ type ChatMessage struct {
     Role      string    `gorm:"size:20;not null" json:"role"` // "user" | "assistant" | "system"
     Message   string    `gorm:"type:text" json:"message"`
     CreatedAt time.Time `json:"created_at"`
-}
-
-func MigrateChatMessage() error {
-	return database.DB.AutoMigrate(&ChatMessage{})
 }

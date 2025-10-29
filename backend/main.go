@@ -1,12 +1,12 @@
 package main
 
 import (
-	"backend/internal/database"
+	"backend/internal/services"
 	"backend/internal/middleware"
 	"backend/internal/models"
 	"backend/internal/routes"
+	"backend/config"
 	"github.com/gin-gonic/gin"
-	"os"
 	swaggerFiles "github.com/swaggo/files"
     ginSwagger "github.com/swaggo/gin-swagger"
     _ "backend/docs"  // import để register docs
@@ -34,30 +34,22 @@ import (
 // @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
-	if err := database.InitDB(); err != nil {
+	if err := services.InitDB(); err != nil {
 		panic(err)
 	}
 	// run AutoMigrate for all models
-	if err := models.MigrateUser(); err != nil {
+	if err := services.DB.AutoMigrate(&models.User{}, &models.KnowledgeBase{}, &models.Document{}, &models.ChatSession{}, &models.ChatMessage{}); err != nil {
 		panic(err)
 	}
-	if err := models.MigrateDocument(); err != nil {
-		panic(err)
-	}
-	if err := models.MigrateChatSession(); err != nil {
-		panic(err)
-	}
-	if err := models.MigrateChatMessage(); err != nil {
-		panic(err)
-	}
-	if err := models.MigrateKnowledgeBase(); err != nil {
-		panic(err)
-	}
-	defer database.CloseDB()
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	defer func() {
+		sqlDB, err := services.DB.DB()
+		if err != nil {
+			panic(err)
+		}
+		sqlDB.Close()
+	}()
+	defer services.CloseDB()
+	port := config.LoadConfig().Port
 	router := gin.New()
 	router.Use(gin.Logger())
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
