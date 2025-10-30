@@ -44,9 +44,9 @@ func GetUserByEmail(email string) (*User, error) {
 }
 
 func ListUsers() ([]User, error) {
-	var users []User
-	if err := services.DB.Select("id", "name").Find(&users).Error; err != nil {
-		return nil, err
-	}
-	return users, nil
+    var users []User
+    if err := services.DB.Find(&users).Error; err != nil {
+        return nil, err
+    }
+    return users, nil
 }

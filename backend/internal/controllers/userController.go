@@ -122,6 +122,6 @@ func GetUserByID() gin.HandlerFunc {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"id": u.ID, "name": u.Name})
+		c.JSON(http.StatusOK, u)
 	}
 }

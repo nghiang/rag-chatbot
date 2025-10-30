@@ -1,27 +1,54 @@
 # Document Processing Worker
 
-This is a standalone worker service that processes document embedding tasks asynchronously using Redis and Asynq.
+This is a standalone worker service that processes document embedding tasks asynchronously using Redis (Asynq), MinIO, and PostgreSQL.
 
 ## Features
 
 - Processes document embedding tasks from a Redis queue
+- Fetches file metadata from MinIO
 - Simulates document processing with a 5-second delay
+- Updates document status in PostgreSQL database
+- Structured code with separate config, MinIO, and PostgreSQL services
 - Logs processing status and completion messages
-- Can be run independently from the backend service
+
+## Project Structure
+
+```
+worker/
+├── main.go                          # Main application entry point
+├── config/
+│   └── config.go                    # Configuration management
+├── services/
+│   ├── minioService.go              # MinIO service for object storage
+│   └── postgresConnection.go       # PostgreSQL database connection
+├── go.mod                           # Go module dependencies
+├── Dockerfile                       # Docker container definition
+├── Makefile                         # Build and run commands
+└── README.md                        # This file
+```
 
 ## Prerequisites
 
-- Go 1.21 or higher
+- Go 1.23 or higher
 - Redis server running
+- PostgreSQL database running
+- MinIO server running
 
 ## Setup
 
-1. Install dependencies:
+1. Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+2. Update the `.env` file with your configuration
+
+3. Install dependencies:
 ```bash
 make deps
 ```
 
-2. Build the worker:
+4. Build the worker:
 ```bash
 make build
 ```
@@ -34,15 +61,19 @@ make build
 make run-dev
 ```
 
-Or with custom Redis address:
+Or with custom environment variables:
 ```bash
-REDIS_ADDR=localhost:6379 go run main.go
+REDIS_ADDR=localhost:6379 \
+POSTGRES_HOST=localhost \
+POSTGRES_PORT=5432 \
+MINIO_ENDPOINT=localhost:9008 \
+go run main.go
 ```
 
 ### Production Mode
 
 ```bash
-REDIS_ADDR=redis:6379 ./worker
+./worker
 ```
 
 ### Using Docker
@@ -54,14 +85,25 @@ docker build -t document-worker .
 
 Run the container:
 ```bash
-docker run -e REDIS_ADDR=redis:6379 document-worker
+docker run --env-file .env document-worker
 ```
 
 ## Configuration
 
 The worker can be configured using environment variables:
 
-- `REDIS_ADDR`: Redis server address (default: `127.0.0.1:6379`)
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_ADDR` | Redis server address | `127.0.0.1:6379` |
+| `POSTGRES_USER` | PostgreSQL username | `postgres` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | `postgres` |
+| `POSTGRES_DB` | PostgreSQL database name | `rag_chatbot_db` |
+| `POSTGRES_HOST` | PostgreSQL host | `localhost` |
+| `POSTGRES_PORT` | PostgreSQL port | `5432` |
+| `MINIO_ENDPOINT` | MinIO server endpoint | `localhost:9008` |
+| `MINIO_ACCESS_KEY` | MinIO access key | `minioadmin` |
+| `MINIO_SECRET_KEY` | MinIO secret key | `minioadmin` |
+| `MINIO_USE_SSL` | Use SSL for MinIO | `false` |
 
 ## Task Processing
 
@@ -75,12 +117,62 @@ The worker listens for tasks of type `document:process` with the following paylo
 }
 ```
 
-When a task is received:
-1. The worker logs the start of processing
-2. Simulates processing for 5 seconds
-3. Logs completion with a success message
-4. Returns the result to the queue
+### Processing Flow
+
+1. Worker receives task from Redis queue
+2. Fetches file metadata from MinIO (size, content-type, etc.)
+3. Logs file information
+4. Simulates processing for 5 seconds
+5. Updates document status to "processed" in PostgreSQL
+6. Logs completion
+
+### Example Output
+
+```
+========================================
+[Worker] Document Processing Started
+========================================
+Document ID:    123
+Bucket:         documents
+Object Name:    kb_1/12345_file.pdf
+Task ID:        abc-123-xyz
+Started At:     2025-10-30T12:00:00Z
+========================================
+[Worker] File Metadata:
+  - Size:         1048576 bytes
+  - Content-Type: application/pdf
+  - ETag:         "d41d8cd98f00b204e9800998ecf8427e"
+  - Last-Modified: 2025-10-30T11:55:00Z
+========================================
+[Worker] Processing document... (simulating 5 seconds)
+Updated document ID 123 status to: processed
+========================================
+[Worker] Document ID 123 processed successfully!
+Completed At:   2025-10-30T12:00:05Z
+========================================
+```
 
 ## Integration with Backend
 
-This worker integrates with the backend service through the Redis queue. The backend enqueues document processing tasks using the `queues.EnqueueProcessDocument()` function, and this worker picks them up for processing.
+This worker integrates with the backend service through:
+- **Redis**: Backend enqueues tasks using `queues.EnqueueProcessDocument()`
+- **MinIO**: Shared object storage for uploaded files
+- **PostgreSQL**: Shared database for document metadata
+
+## Development
+
+### Running Tests
+```bash
+go test ./...
+```
+
+### Building for Production
+```bash
+make build
+```
+
+### Cleaning Build Artifacts
+```bash
+make clean
+```
+

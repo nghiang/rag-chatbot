@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"time"
+
+	"worker/config"
+	"worker/services"
 
 	"github.com/hibiken/asynq"
 )
@@ -20,15 +22,36 @@ type ProcessDocumentPayload struct {
 }
 
 func main() {
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "127.0.0.1:6379"
+	// Load configuration
+	cfg := config.LoadConfig()
+
+	// Initialize PostgreSQL connection
+	if err := services.InitDB(
+		cfg.PostGresUser,
+		cfg.PostGresPassword,
+		cfg.PostGresDB,
+		cfg.PostGresHost,
+		cfg.PostGresPort,
+	); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer services.CloseDB()
+
+	// Initialize MinIO service
+	minioSvc, err := services.NewMinioService(
+		cfg.MinioEndpoint,
+		cfg.MinioAccessKey,
+		cfg.MinioSecretKey,
+		cfg.MinioUseSSL,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize MinIO service: %v", err)
 	}
 
-	log.Printf("Starting worker, connecting to Redis at %s", redisAddr)
+	log.Printf("Starting worker, connecting to Redis at %s", cfg.RedisAddr)
 
 	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: redisAddr},
+		asynq.RedisClientOpt{Addr: cfg.RedisAddr},
 		asynq.Config{
 			Concurrency: 10,
 			Queues: map[string]int{
@@ -38,14 +61,16 @@ func main() {
 	)
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(TaskTypeProcessDocument, handleProcessDocument)
+	mux.HandleFunc(TaskTypeProcessDocument, func(ctx context.Context, t *asynq.Task) error {
+		return handleProcessDocument(ctx, t, minioSvc)
+	})
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatalf("Could not run worker server: %v", err)
 	}
 }
 
-func handleProcessDocument(ctx context.Context, t *asynq.Task) error {
+func handleProcessDocument(ctx context.Context, t *asynq.Task, minioSvc *services.MinioService) error {
 	var payload ProcessDocumentPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		log.Printf("Failed to unmarshal payload: %v", err)
@@ -62,9 +87,33 @@ func handleProcessDocument(ctx context.Context, t *asynq.Task) error {
 	log.Printf("Started At:     %s", time.Now().Format(time.RFC3339))
 	log.Println("========================================")
 
+	// Get file metadata from MinIO
+	objectInfo, err := minioSvc.GetObjectInfo(ctx, payload.Bucket, payload.ObjectName)
+	if err != nil {
+		log.Printf("Failed to get object info: %v", err)
+		// Update status to failed
+		if err := services.UpdateDocumentStatus(payload.DocumentID, "failed"); err != nil {
+			log.Printf("Failed to update document status to failed: %v", err)
+		}
+		return fmt.Errorf("failed to get object info: %w", err)
+	}
+
+	log.Println("[Worker] File Metadata:")
+	log.Printf("  - Size:         %d bytes", objectInfo.Size)
+	log.Printf("  - Content-Type: %s", objectInfo.ContentType)
+	log.Printf("  - ETag:         %s", objectInfo.ETag)
+	log.Printf("  - Last-Modified: %s", objectInfo.LastModified.Format(time.RFC3339))
+	log.Println("========================================")
+
 	// Simulate document processing (sleep for 5 seconds)
 	log.Println("[Worker] Processing document... (simulating 5 seconds)")
 	time.Sleep(5 * time.Second)
+
+	// Update document status to processed in PostgreSQL
+	if err := services.UpdateDocumentStatus(payload.DocumentID, "processed"); err != nil {
+		log.Printf("Failed to update document status: %v", err)
+		return fmt.Errorf("failed to update document status: %w", err)
+	}
 
 	// After processing is complete
 	log.Println("========================================")
