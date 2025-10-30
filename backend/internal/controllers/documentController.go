@@ -1,20 +1,19 @@
 package controllers
 
 import (
+	"backend/config"
+	"backend/internal/models"
+	"backend/internal/queues"
+	"backend/internal/services"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-
-	"backend/internal/models"
-	"backend/internal/queues"
-	"backend/config"
-	"backend/internal/services"
 )
-
 
 func CreateDocument() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -52,33 +51,42 @@ func CreateDocument() gin.HandlerFunc {
 		}
 
 		// prepare object name
-		objectName := fmt.Sprintf("kb_%d/%d_%s", kbID, time.Now().UnixNano(), header.Filename)
+		objectName := fmt.Sprintf("kb_%d/%s", kbID, header.Filename)
 
-		// load config (do not read env directly here)
+		// load config
 		cfg := config.LoadConfig()
 		bucket := cfg.MinioBucket
 
-		// storage base path from config (LocalStoragePath)
-		basePath := cfg.LocalStoragePath
-		storageSvc := services.NewLocalStorage(basePath)
-
-		// we need the size for PutObject; try to get from header
-		var size int64 = 0
-		if header != nil {
-			size = header.Size
+		// Use MinIO storage
+		storageSvc, err := services.NewMinIOStorage(
+			cfg.MinioEndpoint,
+			cfg.MinioAccessKey,
+			cfg.MinioSecretKey,
+			cfg.MinioUseSSL,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize MinIO storage: " + err.Error()})
+			return
 		}
 
-		// ensure bucket (dir) exists and upload
+		// ensure bucket exists and upload
 		ctx := context.Background()
 		if err := storageSvc.EnsureBucket(ctx, bucket); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to ensure bucket: " + err.Error()})
 			return
 		}
 
-		if err := storageSvc.UploadObject(ctx, bucket, objectName, file, size, header.Header.Get("Content-Type")); err != nil {
+		contentType := header.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		if err := storageSvc.UploadObject(ctx, bucket, objectName, file, header.Size, contentType); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upload file: " + err.Error()})
 			return
 		}
+
+		log.Printf("File uploaded to MinIO: bucket=%s, object=%s, size=%d", bucket, objectName, header.Size)
 
 		// create document record with processing status
 		now := time.Now()
@@ -132,4 +140,3 @@ func DeleteDocument() gin.HandlerFunc {
 		c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 	}
 }
-

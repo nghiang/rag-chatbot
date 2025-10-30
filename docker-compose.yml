@@ -7,9 +7,9 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_PROMETHEUS_AUTH_TYPE: public
-    # ports:
-    #   - "9000:9000"
-    #   - "9001:9001"
+    ports:
+      - "9008:9000"
+      - "9009:9001"
     volumes:
       - /home/ubuntu/data/minio_data:/data
     networks:

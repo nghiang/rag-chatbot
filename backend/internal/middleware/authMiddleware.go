@@ -5,7 +5,6 @@ import (
 	"strings"
 	"github.com/gin-gonic/gin"
 	"backend/internal/helpers"
-	"fmt"
 )
 
 func Authentication() gin.HandlerFunc {
@@ -28,6 +27,5 @@ func Authentication() gin.HandlerFunc {
 		}
 		c.Set("user_id", uid)
 		c.Next()
-		fmt.Println("Authenticated user ID:", uid)
 	}
 }
