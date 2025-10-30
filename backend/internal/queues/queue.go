@@ -4,7 +4,7 @@ import (
     "context"
     "encoding/json"
     "fmt"
-    "os"
+    "backend/config"
 
     "github.com/hibiken/asynq"
 )
@@ -12,24 +12,27 @@ import (
 const TaskTypeProcessDocument = "document:process"
 
 type ProcessDocumentPayload struct {
-    DocumentID uint   `json:"document_id"`
-    Bucket     string `json:"bucket"`
-    ObjectName string `json:"object_name"`
+    KnowledgeBaseID uint   `json:"knowledge_base_id"`
+    DocumentID      uint   `json:"document_id"`
+    Description     string `json:"description"`
+    Bucket          string `json:"bucket"`
+    ObjectName      string `json:"object_name"`
+    FileType        string `json:"file_type"`
 }
 
-func EnqueueProcessDocument(documentID uint, bucket, objectName string) error {
-    redisAddr := os.Getenv("REDIS_ADDR")
-    if redisAddr == "" {
-        redisAddr = "127.0.0.1:6379"
-    }
+func EnqueueProcessDocument(kbID uint, documentID uint, description string, bucket, objectName string, fileType string) error {
+    redisAddr := config.LoadConfig().RedisAddr
 
     client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
     defer client.Close()
 
     payload := ProcessDocumentPayload{
-        DocumentID: documentID,
-        Bucket:     bucket,
-        ObjectName: objectName,
+        KnowledgeBaseID: kbID,
+        DocumentID:      documentID,
+        Description:     description,
+        Bucket:          bucket,
+        ObjectName:      objectName,
+        FileType:        fileType,
     }
     b, err := json.Marshal(payload)
     if err != nil {
@@ -37,7 +40,6 @@ func EnqueueProcessDocument(documentID uint, bucket, objectName string) error {
     }
 
     task := asynq.NewTask(TaskTypeProcessDocument, b)
-    // enqueue immediately
     _, err = client.EnqueueContext(context.Background(), task)
     if err != nil {
         return fmt.Errorf("enqueue failed: %w", err)
