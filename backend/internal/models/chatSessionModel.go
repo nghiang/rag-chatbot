@@ -4,7 +4,7 @@ import (
 	"time"
 	// "errors"
 	// "gorm.io/gorm"
-	"backend/internal/database"
+	// "backend/internal/database"
 )
 
 type ChatSession struct {
@@ -18,10 +18,6 @@ type ChatSession struct {
     User          User          `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"user,omitempty"`
     KnowledgeBase *KnowledgeBase `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"knowledge_base,omitempty"`
     Messages      []ChatMessage `gorm:"foreignKey:SessionID" json:"messages,omitempty"`
-}
-
-func MigrateChatSession() error {
-	return database.DB.AutoMigrate(&ChatSession{})
 }
 
 

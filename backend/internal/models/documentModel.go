@@ -4,7 +4,7 @@ import (
 	"time"
 	// "errors"
 	// "gorm.io/gorm"
-	"backend/internal/database"
+	"backend/internal/services"
 )
 
 
@@ -14,7 +14,7 @@ type Document struct {
     UserID          uint      `gorm:"index;not null" json:"user_id"`
     Name            string    `gorm:"size:255" json:"name"`
     FileType        string    `gorm:"size:50" json:"file_type"`
-    MinioObjectName string    `gorm:"size:255" json:"minio_object_name"`
+    Description     string    `gorm:"size:255" json:"description"`
     EmbeddingStatus string    `gorm:"size:20;default:'pending'" json:"embedding_status"`
     CreatedAt       time.Time `json:"created_at"`
     UpdatedAt       time.Time `json:"updated_at"`
@@ -23,6 +23,23 @@ type Document struct {
     User          User          `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"user,omitempty"`
 }
 
-func MigrateDocument() error {
-	return database.DB.AutoMigrate(&Document{})
+
+func CreateDocument(d *Document) error {
+    return services.DB.Create(d).Error
+}
+
+func GetDocumentByID(id uint) (*Document, error) {
+    var doc Document
+    if err := services.DB.First(&doc, id).Error; err != nil {
+        return nil, err
+    }
+    return &doc, nil
+}
+
+func UpdateDocument(d *Document) error {
+    return services.DB.Save(d).Error
+}
+
+func UpdateDocumentEmbeddingStatus(id uint, status string) error {
+    return services.DB.Model(&Document{}).Where("id = ?", id).Update("embedding_status", status).Error
 }

@@ -10,10 +10,10 @@ import (
 func DocumentRoutes(router *gin.Engine) {
 	documentGroup := router.Group("/documents")
 	{
-		documentGroup.POST("/:userId", middleware.Authentication(), controllers.CreateDocument())
-		documentGroup.GET("/:userId", middleware.Authentication(), controllers.ListDocuments())
-		documentGroup.GET("/:userId/:docId", middleware.Authentication(), controllers.GetDocumentByID())
-		documentGroup.PUT("/:userId/:docId", middleware.Authentication(), controllers.UpdateDocument())
-		documentGroup.DELETE("/:userId/:docId", middleware.Authentication(), controllers.DeleteDocument())
+		documentGroup.POST("/:knowledgeBaseId", middleware.Authentication(), controllers.CreateDocument())
+		documentGroup.GET("/:knowledgeBaseId", middleware.Authentication(), controllers.ListDocuments())
+		documentGroup.GET("/:knowledgeBaseId/:docId", middleware.Authentication(), controllers.GetDocumentByID())
+		documentGroup.PUT("/:knowledgeBaseId/:docId", middleware.Authentication(), controllers.UpdateDocument())
+		documentGroup.DELETE("/:knowledgeBaseId/:docId", middleware.Authentication(), controllers.DeleteDocument())
 	}
 }
