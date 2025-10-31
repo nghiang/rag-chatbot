@@ -42,3 +42,12 @@ func (s *MinioService) DownloadObject(ctx context.Context, bucket, objectName st
 
 	return object, nil
 }
+
+func (s *MinioService) GetObject(ctx context.Context, bucket, objectName string) (*minio.Object, error) {
+	object, err := s.client.GetObject(ctx, bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object: %w", err)
+	}
+
+	return object, nil
+}

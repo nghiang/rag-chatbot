@@ -44,9 +44,9 @@ func CreateDocument() gin.HandlerFunc {
 		description := c.PostForm("description")
 
 		// validate file type enum
-		allowed := map[string]bool{"csv": true, "pdf": true, "graph": true}
+		allowed := map[string]bool{"csv": true, "doc": true, "graph": true}
 		if !allowed[fileType] {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "file_type must be one of csv, pdf, graph"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "file_type must be one of csv, doc, graph"})
 			return
 		}
 
@@ -107,7 +107,7 @@ func CreateDocument() gin.HandlerFunc {
 		}
 
 		// enqueue asynq task
-		if err := queues.EnqueueProcessDocument(doc.ID, bucket, objectName); err != nil {
+		if err := queues.EnqueueProcessDocument(kbID, doc.ID, description, bucket, objectName, fileType); err != nil {
 			// log but respond success because upload and DB succeeded
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enqueue processing task: " + err.Error()})
 			return
