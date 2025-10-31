@@ -1,6 +1,19 @@
 package routes
 
-import "github.com/gin-gonic/gin"
+import (
+	"backend/internal/controllers"
+	"backend/internal/middleware"
 
-// Placeholder: register chat message routes here
-func ChatMessageRoutes(router *gin.Engine) {}
+	"github.com/gin-gonic/gin"
+)
+
+func ChatMessageRoutes(router *gin.Engine) {
+	messageGroup := router.Group("/chat-sessions/:id/messages")
+	{
+		messageGroup.POST("/", middleware.Authentication(), controllers.CreateChatMessage())
+		messageGroup.GET("/", middleware.Authentication(), controllers.ListChatMessages())
+		messageGroup.GET("/:messageId", middleware.Authentication(), controllers.GetChatMessageByID())
+		messageGroup.PUT("/:messageId", middleware.Authentication(), controllers.UpdateChatMessage())
+		messageGroup.DELETE("/:messageId", middleware.Authentication(), controllers.DeleteChatMessage())
+	}
+}
