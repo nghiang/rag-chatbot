@@ -1,15 +1,16 @@
 package main
 
 import (
-	"backend/internal/services"
+	"backend/config"
+	_ "backend/docs" // import để register docs
 	"backend/internal/middleware"
 	"backend/internal/models"
 	"backend/internal/routes"
-	"backend/config"
+	"backend/internal/services"
+
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
-    ginSwagger "github.com/swaggo/gin-swagger"
-    _ "backend/docs"  // import để register docs
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // @title Chatbot RAG API
@@ -57,8 +58,8 @@ func main() {
 	routes.UserRoutes(router)
 	router.Use(middleware.Authentication())
 	routes.KnowledgeBaseRoutes(router)
-	routes.ChatMessageRoutes(router)
 	routes.ChatSessionRoutes(router)
+	routes.ChatMessageRoutes(router)
 	routes.DocumentRoutes(router)
 
 	router.Run(":" + port)
