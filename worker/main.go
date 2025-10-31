@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"time"
 
@@ -29,18 +27,6 @@ type ProcessDocumentPayload struct {
 func main() {
 	// Load configuration
 	cfg := config.LoadConfig()
-
-	// Initialize PostgreSQL connection
-	if err := services.InitDB(
-		cfg.PostGresUser,
-		cfg.PostGresPassword,
-		cfg.PostGresDB,
-		cfg.PostGresHost,
-		cfg.PostGresPort,
-	); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
-	defer services.CloseDB()
 
 	// Initialize MinIO service
 	minioSvc, err := services.NewMinioService(
@@ -98,10 +84,6 @@ func handleProcessDocument(ctx context.Context, t *asynq.Task, minioSvc *service
 	objectInfo, err := minioSvc.GetObjectInfo(ctx, payload.Bucket, payload.ObjectName)
 	if err != nil {
 		log.Printf("Failed to get object info: %v", err)
-		// Update status to failed
-		if err := services.UpdateDocumentStatus(payload.DocumentID, "failed"); err != nil {
-			log.Printf("Failed to update document status to failed: %v", err)
-		}
 		return fmt.Errorf("failed to get object info: %w", err)
 	}
 
@@ -123,17 +105,7 @@ func handleProcessDocument(ctx context.Context, t *asynq.Task, minioSvc *service
 
 	if processingErr != nil {
 		log.Printf("Failed to process document: %v", processingErr)
-		// Update status to failed
-		if err := services.UpdateDocumentStatus(payload.DocumentID, "failed"); err != nil {
-			log.Printf("Failed to update document status to failed: %v", err)
-		}
 		return processingErr
-	}
-
-	// Update document status to processed in PostgreSQL
-	if err := services.UpdateDocumentStatus(payload.DocumentID, "processed"); err != nil {
-		log.Printf("Failed to update document status: %v", err)
-		return fmt.Errorf("failed to update document status: %w", err)
 	}
 
 	// After processing is complete
@@ -145,77 +117,15 @@ func handleProcessDocument(ctx context.Context, t *asynq.Task, minioSvc *service
 	return nil
 }
 
-// processCSVFile processes CSV files by creating a schema and table in PostgreSQL
+// processCSVFile processes CSV files (simulates 5s processing)
 func processCSVFile(ctx context.Context, minioSvc *services.MinioService, payload ProcessDocumentPayload) error {
-	log.Printf("[Worker] Processing CSV file for Knowledge Base ID: %d", payload.KnowledgeBaseID)
+	log.Printf("[Worker] Processing CSV file: %s", payload.ObjectName)
+	log.Println("[Worker] Simulating CSV processing... (5 seconds)")
 
-	// Download the CSV file from MinIO
-	object, err := minioSvc.GetObject(ctx, payload.Bucket, payload.ObjectName)
-	if err != nil {
-		return fmt.Errorf("failed to get CSV object from MinIO: %w", err)
-	}
-	defer object.Close()
+	// Simulate CSV processing
+	time.Sleep(5 * time.Second)
 
-	// Read CSV content
-	reader := csv.NewReader(object)
-
-	// Read header row
-	headers, err := reader.Read()
-	if err != nil {
-		return fmt.Errorf("failed to read CSV headers: %w", err)
-	}
-
-	if len(headers) == 0 {
-		return fmt.Errorf("CSV file has no headers")
-	}
-
-	log.Printf("[Worker] CSV Headers: %v", headers)
-
-	// Create schema name based on knowledge base ID
-	schemaName := fmt.Sprintf("kb_%d", payload.KnowledgeBaseID)
-
-	// Create schema if it doesn't exist
-	if err := services.CreateSchemaIfNotExists(schemaName); err != nil {
-		return fmt.Errorf("failed to create schema: %w", err)
-	}
-
-	// Create table name based on document ID
-	tableName := fmt.Sprintf("doc_%d", payload.DocumentID)
-
-	// Create table with columns from CSV headers
-	if err := services.CreateTableFromCSV(schemaName, tableName, headers); err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
-	}
-
-	// Add description as table comment if provided
-	if payload.Description != "" {
-		if err := services.SetTableComment(schemaName, tableName, payload.Description); err != nil {
-			log.Printf("[Worker] Warning: Failed to set table comment: %v", err)
-			// Don't fail the entire process if comment fails
-		} else {
-			log.Printf("[Worker] Table comment set successfully")
-		}
-	}
-
-	// Insert CSV data into the table
-	rowCount := 0
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("failed to read CSV row: %w", err)
-		}
-
-		if err := services.InsertCSVRow(schemaName, tableName, headers, record); err != nil {
-			log.Printf("Warning: failed to insert row: %v", err)
-			continue
-		}
-		rowCount++
-	}
-
-	log.Printf("[Worker] CSV processing complete. Inserted %d rows into %s.%s", rowCount, schemaName, tableName)
+	log.Printf("[Worker] CSV file processing complete: %s", payload.ObjectName)
 	return nil
 }
 
